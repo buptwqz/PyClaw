@@ -1,20 +1,38 @@
+"""工具注册表
+
+- @tool(description, section, profiles) 装饰器注册工具
+- section: 工具分区（fs/web/memory/runtime/messaging）
+- profiles: 适用场景列表（minimal/coding/messaging/full）
+- 支持同步和异步工具
+"""
 import json
 import inspect
 from typing import Any, Callable
 
+# profile 包含的 section
+_PROFILE_SECTIONS: dict[str, set[str]] = {
+    "minimal":   {"memory"},
+    "coding":    {"fs", "runtime", "web", "memory"},
+    "messaging": {"web", "memory", "messaging"},
+    "full":      {"fs", "runtime", "web", "memory", "messaging"},
+}
+
 _registry: dict[str, dict] = {}
 
 
-def tool(func: Callable | None = None, *, description: str | None = None) -> Any:
-    """Decorator to register a function as an agent tool.
-    Supports both @tool and @tool(description='...') usage.
+def tool(func: Callable | None = None, *, description: str | None = None,
+         section: str = "memory", profiles: list[str] | None = None) -> Any:
+    """装饰器：注册函数为 agent 可调用工具。
+
+    支持：@tool 或 @tool(description='...', section='web', profiles=['full'])
     """
+    _profiles = profiles or ["full"]
+
     def _register(fn: Callable) -> Callable:
         params = {}
         required = []
         sig = inspect.signature(fn)
         hints = fn.__annotations__
-
         for name, param in sig.parameters.items():
             if name == "return":
                 continue
@@ -29,15 +47,15 @@ def tool(func: Callable | None = None, *, description: str | None = None) -> Any
             params[name] = {"type": json_type, "description": pdesc}
             if param.default is inspect.Parameter.empty:
                 required.append(name)
-
-        tool_desc = description or ((fn.__doc__ or "").strip().splitlines()[0] if fn.__doc__ else "")
         _registry[fn.__name__] = {
             "func": fn,
+            "section": section,
+            "profiles": _profiles,
             "schema": {
                 "type": "function",
                 "function": {
                     "name": fn.__name__,
-                    "description": tool_desc,
+                    "description": description or (fn.__doc__ or "").strip().splitlines()[0],
                     "parameters": {
                         "type": "object",
                         "properties": params,
@@ -53,15 +71,24 @@ def tool(func: Callable | None = None, *, description: str | None = None) -> Any
     return _register
 
 
-def get_schemas() -> list[dict]:
-    return [v["schema"] for v in _registry.values()]
+def get_schemas(profile: str = "full") -> list[dict]:
+    """返回指定 profile 下的工具 schema 列表。"""
+    allowed = _PROFILE_SECTIONS.get(profile, set())
+    return [
+        v["schema"] for v in _registry.values()
+        if v["section"] in allowed or profile == "full"
+    ]
 
 
-def call(name: str, args: str | dict) -> Any:
+async def acall(name: str, args: str | dict) -> str:
+    """异步调用工具（自动处理同步/异步）。"""
     if name not in _registry:
-        return f"[error] unknown tool: {name}"
+        return f"[错误] 未知工具：{name}"
     kwargs = json.loads(args) if isinstance(args, str) else args
     try:
-        return _registry[name]["func"](**kwargs)
+        fn = _registry[name]["func"]
+        if inspect.iscoroutinefunction(fn):
+            return str(await fn(**kwargs))
+        return str(fn(**kwargs))
     except Exception as e:
-        return f"[error] {e}"
+        return f"[错误] {e}"

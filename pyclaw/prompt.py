@@ -42,6 +42,11 @@ class ContextBuilder:
             if content:
                 parts.append(content.strip())
 
+        # TOOLS.md — 工具使用约束说明
+        tools_md = self._load_template("TOOLS.md")
+        if tools_md:
+            parts.append(tools_md.strip())
+
         # USER.md 仅 workspace
         user_md = self.workspace / "USER.md"
         if user_md.exists():
