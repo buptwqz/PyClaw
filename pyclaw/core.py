@@ -8,19 +8,24 @@ _client = httpx.AsyncClient(base_url=QWEN_BASE_URL, timeout=60)
 
 async def _chat(messages: list[dict]) -> dict:
     schemas = tool_registry.get_schemas()
+    _no_tool_models = {"qvq", "qwen-vl"}
+    supports_tools = not any(m in QWEN_MODEL for m in _no_tool_models)
     payload = {
         "model": QWEN_MODEL,
         "messages": messages,
         "stream": False,
     }
-    if schemas:
+    if schemas and supports_tools:
         payload["tools"] = schemas
     resp = await _client.post(
         "/chat/completions",
         json=payload,
         headers={"Authorization": f"Bearer {QWEN_API_KEY}"},
     )
-    resp.raise_for_status()
+    if not resp.is_success:
+        raise httpx.HTTPStatusError(
+            f"{resp.status_code}: {resp.text}", request=resp.request, response=resp
+        )
     return resp.json()["choices"][0]["message"]
 
 
