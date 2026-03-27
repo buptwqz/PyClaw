@@ -4,11 +4,9 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ./memory:/app/memory       # 持久化记忆
-      - ./skills:/app/skills       # 自定义 skill
+      - ./pyclaw:/app/pyclaw       # 代码热挂载，更新无需重建镜像
+      - ./main.py:/app/main.py
       - ./mcp_servers.json:/app/mcp_servers.json
       - ./HEARTBEAT.md:/app/HEARTBEAT.md
-      # 可选：覆盖内置模板
-      # - ./SOUL.md:/app/SOUL.md
-      # - ./AGENTS.md:/app/AGENTS.md
-      # - ./USER.md:/app/USER.md
+      - ./memory:/app/memory       # 持久化记忆
+      - ./skills:/app/skills       # 自定义 skill
