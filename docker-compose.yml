@@ -1,0 +1,14 @@
+services:
+  pyclaw:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./memory:/app/memory       # 持久化记忆
+      - ./skills:/app/skills       # 自定义 skill
+      - ./mcp_servers.json:/app/mcp_servers.json
+      - ./HEARTBEAT.md:/app/HEARTBEAT.md
+      # 可选：覆盖内置模板
+      # - ./SOUL.md:/app/SOUL.md
+      # - ./AGENTS.md:/app/AGENTS.md
+      # - ./USER.md:/app/USER.md
