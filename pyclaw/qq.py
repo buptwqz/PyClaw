@@ -10,6 +10,7 @@ import botpy
 from botpy.message import Message, GroupMessage, C2CMessage
 from . import core
 from .config import QQ_APPID, QQ_SECRET, QQ_SANDBOX
+from .memory import log_history
 
 # per-session history keyed by openid/channel_id
 _history: dict[str, list[dict]] = {}
@@ -25,6 +26,8 @@ def _update_history(key: str, user_text: str, bot_reply: str) -> None:
     h.append({"role": "assistant", "content": bot_reply})
     if len(h) > 40:
         _history[key] = h[-40:]
+    log_history("user", user_text)
+    log_history("assistant", bot_reply)
 
 
 class PyClaw(botpy.Client):

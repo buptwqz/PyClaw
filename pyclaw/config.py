@@ -11,4 +11,3 @@ QWEN_MODEL = os.getenv("QWEN_MODEL", "qwen-turbo")
 QQ_APPID = os.getenv("QQ_APPID", "")
 QQ_SECRET = os.getenv("QQ_SECRET", "")
 QQ_SANDBOX = os.getenv("QQ_SANDBOX", "false").lower() == "true"
-SYSTEM_PROMPT = os.getenv("SYSTEM_PROMPT", "You are a helpful assistant.")

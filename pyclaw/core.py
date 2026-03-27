@@ -1,20 +1,18 @@
 import json
 import httpx
 from . import tools as tool_registry
-from .config import QWEN_API_KEY, QWEN_BASE_URL, QWEN_MODEL, SYSTEM_PROMPT
+from .prompt import ContextBuilder
+from .config import QWEN_API_KEY, QWEN_BASE_URL, QWEN_MODEL
 
 _client = httpx.AsyncClient(base_url=QWEN_BASE_URL, timeout=60)
+_no_tool_models = {"qvq", "qwen-vl"}
+_context = ContextBuilder()
 
 
 async def _chat(messages: list[dict]) -> dict:
-    schemas = tool_registry.get_schemas()
-    _no_tool_models = {"qvq", "qwen-vl"}
     supports_tools = not any(m in QWEN_MODEL for m in _no_tool_models)
-    payload = {
-        "model": QWEN_MODEL,
-        "messages": messages,
-        "stream": False,
-    }
+    schemas = tool_registry.get_schemas()
+    payload = {"model": QWEN_MODEL, "messages": messages, "stream": False}
     if schemas and supports_tools:
         payload["tools"] = schemas
     resp = await _client.post(
@@ -29,22 +27,29 @@ async def _chat(messages: list[dict]) -> dict:
     return resp.json()["choices"][0]["message"]
 
 
-async def run(user_input: str, history: list[dict] | None = None) -> str:
-    """Run the agent loop and return the final text response."""
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+async def run(
+    user_input: str,
+    history: list[dict] | None = None,
+    *,
+    extra_skills: list[str] | None = None,
+) -> str:
+    """Run the agent loop.
+
+    System prompt is built from SOUL.md + AGENTS.md + always-skills +
+    any extra_skills passed in.
+    """
+    system_prompt = _context.build_system_prompt(extra_skill_names=extra_skills)
+    messages = [{"role": "system", "content": system_prompt}]
     if history:
         messages.extend(history)
     messages.append({"role": "user", "content": user_input})
 
-    for _ in range(10):  # max iterations
+    for _ in range(10):
         msg = await _chat(messages)
         messages.append(msg)
-
         tool_calls = msg.get("tool_calls")
         if not tool_calls:
             return msg.get("content") or ""
-
-        # execute all tool calls
         for tc in tool_calls:
             fn = tc["function"]
             result = tool_registry.call(fn["name"], fn["arguments"])

@@ -1,31 +1,39 @@
-"""Entry point — register tools here, then run the QQ official bot."""
-from pyclaw import tool, create_client
-from pyclaw.config import QQ_APPID, QQ_SECRET
+"""PyClaw 入口。
+
+在此添加 @tool 工具。
+技能文件放在 pyclaw/skills/<name>/SKILL.md（内置）或 skills/<name>/SKILL.md（自定义）。
+身份/规范在 SOUL.md / AGENTS.md / USER.md 中定义（项目根目录优先）。
+"""
+import os
+from pyclaw import tool
+from pyclaw.memory import remember, recall
+from pyclaw.qq import create_client
 
 
-# ── Example tools ─────────────────────────────────────────────────────────────
-
-@tool(description="Get the current time in ISO format.")
+@tool(description="获取当前日期和时间（ISO 格式）。")
 def get_time() -> str:
     from datetime import datetime
-    return datetime.now().isoformat()
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-@tool(description="Evaluate a simple math expression safely.")
+@tool(description="计算数学表达式。")
 def calculate(expression: str) -> str:
-    """expression: a Python-style math expression, e.g. '2 + 3 * 4'"""
+    """
+    expression: Python 风格的数学表达式，例如 '2 + 3 * 4'
+    """
     try:
         result = eval(expression, {"__builtins__": {}}, {})
         return str(result)
     except Exception as e:
-        return f"Error: {e}"
+        return f"计算错误：{e}"
 
 
-# ── Start ─────────────────────────────────────────────────────────────────────
+# 注册记忆工具
+tool(description="记住一条关于用户的事实。")(remember)
+tool(description="查看所有已记住的事实。")(recall)
+
 
 if __name__ == "__main__":
-    if not QQ_APPID or not QQ_SECRET:
-        raise SystemExit("[error] QQ_APPID and QQ_SECRET must be set in .env")
-    print(f"PyClaw starting (appid={QQ_APPID[:6]}...)")
-    client = create_client()
-    client.run(appid=QQ_APPID, secret=QQ_SECRET)
+    print("PyClaw 启动中...")
+    bot = create_client()
+    bot.run(appid=os.getenv("QQ_APPID", ""), secret=os.getenv("QQ_SECRET", ""))
